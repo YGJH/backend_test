@@ -12,7 +12,7 @@ const apiUrl =
     'https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=CWA-EBC821F3-9782-4630-8E87-87FF25933C15';
 
 app.get(
-    '/',
+    './',
     (req, res) => {fetch(apiUrl)
                        .then(response => response.json())
                        .then((data) => {
