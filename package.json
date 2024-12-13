@@ -1,9 +1,12 @@
 {
+  "name": "backend_test",
+  "version": "1.0.0",
+  "type": "module",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "heroku": "^10.0.0",
-    "node-fetch": "^2.7.0",
+    "node-fetch": "^3.3.2",
     "nodeman": "^1.1.2"
   },
   "scripts": {
