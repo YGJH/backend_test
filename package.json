@@ -3,5 +3,8 @@
     "heroku": "^10.0.0",
     "node-fetch": "^2.7.0",
     "nodeman": "^1.1.2"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
 }
