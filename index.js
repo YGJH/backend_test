@@ -24,11 +24,12 @@ const server = http.createServer((req, res) => {
 
                     const locations = data.records.location;
                     const location = locations.find(loc => loc.locationName === cityName);
-
+                    let tim = new Date().toLocaleString();
+                    tim.setUTCHours(tim.getUTCHours() + 8);
                     if (location) {
                         // 加上時間戳記
                         const responseData = {
-                            timestamp: new Date().toLocaleString(),
+                            timestamp: tim.toLocaleString(),
                             data: location
                         };
                         res.writeHead(200, { 'Content-Type': 'application/json' });
