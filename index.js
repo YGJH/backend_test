@@ -20,7 +20,7 @@ const server = http.createServer((req, res) => {
             .then(data => {
                 if (data.success === 'true') {
                     // 儲存最新的天氣資料
-                    fs.writeFileSync('weather.json', JSON.stringify(data, null, 2));
+                    // fs.writeFileSync('weather.json', JSON.stringify(data, null, 2));
 
                     const locations = data.records.location;
                     const location = locations.find(loc => loc.locationName === cityName);
