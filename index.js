@@ -26,8 +26,13 @@ const server = http.createServer((req, res) => {
                     const location = locations.find(loc => loc.locationName === cityName);
 
                     if (location) {
+                        // 加上時間戳記
+                        const responseData = {
+                            timestamp: new Date().toISOString(),
+                            data: location
+                        };
                         res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify(location));
+                        res.end(JSON.stringify(responseData));
                     } else {
                         res.writeHead(404, { 'Content-Type': 'text/plain' });
                         res.end('找不到該城市的天氣資訊');
