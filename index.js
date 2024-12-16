@@ -24,8 +24,8 @@ const server = http.createServer((req, res) => {
 
                     const locations = data.records.location;
                     const location = locations.find(loc => loc.locationName === cityName);
-                    let tim = new Date().toLocaleString();
-                    tim.setUTCHours(tim.getUTCHours() + 8);
+                    let tim = new Date();
+                    tim.setHours(tim.getHours() + 8);
                     if (location) {
                         // 加上時間戳記
                         const responseData = {
