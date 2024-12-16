@@ -28,7 +28,7 @@ const server = http.createServer((req, res) => {
                     if (location) {
                         // 加上時間戳記
                         const responseData = {
-                            timestamp: new Date().toISOString(),
+                            timestamp: new Date().toLocaleString(),
                             data: location
                         };
                         res.writeHead(200, { 'Content-Type': 'application/json' });
