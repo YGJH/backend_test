@@ -14,8 +14,8 @@ const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    
     const url = new URL(req.url, `http://${req.headers.host}`);
-
     if (req.method === 'POST' && url.pathname === '/weather') {
         const cityName = url.searchParams.get('city');
         console.log('城市名稱：', cityName);
@@ -53,22 +53,24 @@ const server = http.createServer((req, res) => {
                 readLocalWeather(cityName, res);
             });
     } else if (req.method === 'GET' && url.pathname === '/weather') {
+        console.log('GET');
         const latitude = url.searchParams.get('latitude');
         const longitude = url.searchParams.get('longitude');
-
+        console.log('經度：', latitude);
+        console.log('緯度：', longitude);
         if (!latitude || !longitude) {
             res.writeHead(400, { 'Content-Type': 'text/plain' });
             res.end('缺少經緯度參數');
             return;
         }
-        console.log(`url.searchParams:${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`);
         // 調用 Google Maps API 取得城市名稱
-        fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`)
-            .then(response => response.json())
-            .then(geoData => {
+        fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=AIzaSyDzrASv3gxFcMo5fNXwgrG9lPnFKZtHVM4`)
+        .then(response => response.json())
+        .then(geoData => {
+                console.log(`url.searchParams:${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=AIzaSyDzrASv3gxFcMo5fNXwgrG9lPnFKZtHVM4`);
                 if (geoData.status === 'OK') {
                     const addressComponents = geoData.results[0].address_components;
-                    const cityComponent = addressComponents.find(component => component.types.includes('locality'));
+                    const cityComponent = addressComponents.find(component => component.types.includes('administrative_area_level_1'));
                     const cityName = cityComponent ? cityComponent.long_name : null;
 
                     if (cityName) {
