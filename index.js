@@ -95,6 +95,7 @@ const server = http.createServer((req, res) => {
                                         res.writeHead(200, { 'Content-Type': 'application/json' });
                                         res.end(JSON.stringify(responseData));
                                     } else {
+                                        console.log(locations);
                                         res.writeHead(404, { 'Content-Type': 'text/plain' });
                                         res.end('找不到該城市的天氣資訊');
                                     }
