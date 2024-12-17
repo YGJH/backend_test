@@ -34,7 +34,8 @@ const server = http.createServer((req, res) => {
                         // 加上時間戳記
                         const responseData = {
                             timestamp: tim.toLocaleString(),
-                            data: location
+                            data: location,
+                            tmep: `${process.env.GOOGLE_API_KEY}`
                         };
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify(responseData));
@@ -110,7 +111,7 @@ const server = http.createServer((req, res) => {
                             });
                     } else {
                         res.writeHead(404, { 'Content-Type': 'text/plain' });
-                        res.end(`無法解析城市名稱${process.env.GOOGLE_API_KEY}`);
+                        res.end(`無法解析城市名稱`);
                     }
                 } else {
                     res.writeHead(500, { 'Content-Type': 'text/plain' });
