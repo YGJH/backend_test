@@ -1,8 +1,12 @@
 import http from 'http';
 import fs from 'fs';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
 
-const apiUrl = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=CWA-EBC821F3-9782-4630-8E87-87FF25933C15';
+dotenv.config();
+
+const apiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${process.env.WEATHER_API_KEY}`;
+const googleMapsApiUrl = 'https://maps.googleapis.com/maps/api/geocode/json';
 
 const server = http.createServer((req, res) => {
     // 設置 CORS 頭部
@@ -20,7 +24,7 @@ const server = http.createServer((req, res) => {
             .then(data => {
                 if (data.success === 'true') {
                     // 儲存最新的天氣資料
-                    // fs.writeFileSync('weather.json', JSON.stringify(data, null, 2));
+                    fs.writeFileSync('weather.json', JSON.stringify(data, null, 2));
 
                     const locations = data.records.location;
                     const location = locations.find(loc => loc.locationName === cityName);
@@ -47,6 +51,74 @@ const server = http.createServer((req, res) => {
                 console.error('資料獲取錯誤：', err);
                 // 無法取得最新資料，讀取本地的 weather.json
                 readLocalWeather(cityName, res);
+            });
+    } else if (req.method === 'GET' && url.pathname === '/weather') {
+        const latitude = url.searchParams.get('latitude');
+        const longitude = url.searchParams.get('longitude');
+
+        if (!latitude || !longitude) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('缺少經緯度參數');
+            return;
+        }
+
+        // 調用 Google Maps API 取得城市名稱
+        fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`)
+            .then(response => response.json())
+            .then(geoData => {
+                if (geoData.status === 'OK') {
+                    const addressComponents = geoData.results[0].address_components;
+                    const cityComponent = addressComponents.find(component => component.types.includes('locality'));
+                    const cityName = cityComponent ? cityComponent.long_name : null;
+
+                    if (cityName) {
+                        // ...existing weather fetching code using cityName...
+                        fetch(apiUrl)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success === 'true') {
+                                    // 儲存最新的天氣資料
+                                    fs.writeFileSync('weather.json', JSON.stringify(data, null, 2));
+
+                                    const locations = data.records.location;
+                                    const location = locations.find(loc => loc.locationName === cityName);
+                                    let tim = new Date();
+                                    tim.setHours(tim.getHours() + 8);
+                                    if (location) {
+                                        // 加上時間戳記
+                                        const responseData = {
+                                            timestamp: tim.toLocaleString(),
+                                            data: location
+                                        };
+                                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                                        res.end(JSON.stringify(responseData));
+                                    } else {
+                                        res.writeHead(404, { 'Content-Type': 'text/plain' });
+                                        res.end('找不到該城市的天氣資訊');
+                                    }
+                                } else {
+                                    // 無法取得最新資料，讀取本地的 weather.json
+                                    readLocalWeather(cityName, res);
+                                }
+                            })
+                            .catch(err => {
+                                console.error('資料獲取錯誤：', err);
+                                // 無法取得最新資料，讀取本地的 weather.json
+                                readLocalWeather(cityName, res);
+                            });
+                    } else {
+                        res.writeHead(404, { 'Content-Type': 'text/plain' });
+                        res.end('無法解析城市名稱');
+                    }
+                } else {
+                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    res.end('Google Maps API 錯誤');
+                }
+            })
+            .catch(err => {
+                console.error('Google Maps API 錯誤：', err);
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('無法取得城市名稱');
             });
     } else {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
