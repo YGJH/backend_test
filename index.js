@@ -61,7 +61,7 @@ const server = http.createServer((req, res) => {
             res.end('缺少經緯度參數');
             return;
         }
-
+        console.log(`url.searchParams:${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`);
         // 調用 Google Maps API 取得城市名稱
         fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`)
             .then(response => response.json())
