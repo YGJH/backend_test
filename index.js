@@ -67,7 +67,7 @@ const server = http.createServer((req, res) => {
         fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`)
         .then(response => response.json())
         .then(geoData => {
-                console.log(`url.searchParams:${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=AIzaSyDzrASv3gxFcMo5fNXwgrG9lPnFKZtHVM4`);
+                console.log(`url.searchParams:${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`);
                 if (geoData.status === 'OK') {
                     const addressComponents = geoData.results[0].address_components;
                     const cityComponent = addressComponents.find(component => component.types.includes('administrative_area_level_1'));
@@ -110,7 +110,7 @@ const server = http.createServer((req, res) => {
                             });
                     } else {
                         res.writeHead(404, { 'Content-Type': 'text/plain' });
-                        res.end('無法解析城市名稱');
+                        res.end(`無法解析城市名稱${process.env.GOOGLE_API_KEY}`);
                     }
                 } else {
                     res.writeHead(500, { 'Content-Type': 'text/plain' });
