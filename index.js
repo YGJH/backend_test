@@ -35,7 +35,6 @@ const server = http.createServer((req, res) => {
                         const responseData = {
                             timestamp: tim.toLocaleString(),
                             data: location,
-                            tmep: `${process.env.GOOGLE_API_KEY}`
                         };
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify(responseData));
