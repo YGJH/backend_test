@@ -39,7 +39,6 @@ async function getDressingAdvice(messageContent) {
       temperature: 0.7,
     });
     let advice = chatCompletion.choices[0].message; // There's no "data" property
-    console.log('穿搭建議：', advice.content);
 	return advice.content;
 } catch (error) {
     console.error('錯誤：', error);
@@ -92,8 +91,9 @@ app.post('/weather', async (req, res) => {
         res.status(404).send('找不到該縣市的天氣資訊');
       }
     } else {
-      res.status(500).send('無法取得最新天氣資訊');
-    }
+			  // 無法取得最新資料，讀取本地的 weather.json
+	  readLocalWeather(cityName, res);
+	}
   } catch (error) {
     console.error('錯誤：', error);
     res.status(500).send('無法取得天氣資訊');
@@ -153,7 +153,7 @@ app.get('/weather', async (req, res) => {
                 location.weatherElement[1]
                     .time[0]
                     .parameter.parameterName}%。請問我今天應該穿什麼衣服？`;
-            advice = await getDressingAdvice(messageContent);
+            const advice = await getDressingAdvice(messageContent);
             console.log('穿搭建議：', advice);
             const responseData = {
               timestamp: tim.toLocaleString(),
@@ -161,6 +161,7 @@ app.get('/weather', async (req, res) => {
               advice: advice,
             };
             res.status(200).json(responseData);
+			res.end();
           } else {
             res.status(404).send('找不到該縣市的天氣資訊');
           }
@@ -190,8 +191,8 @@ app.listen(port, () => {
   console.log(`伺服器正在監聽埠口 ${port}`);
 });
 
-function readLocalWeather(cityName, res) {
-  fs.readFile('weather.json', 'utf8', (err, data) => {
+async function readLocalWeather(cityName, res) {
+  fs.readFile('weather.json', 'utf8', async (err, data) => {
     if (err) {
       res.status(500).send('Internal Server Error');
     } else {
@@ -215,7 +216,7 @@ function readLocalWeather(cityName, res) {
                 location.weatherElement[1]
                     .time[0]
                     .parameter.parameterName}%。請問我今天應該穿什麼衣服？`;
-            const advice = getDressingAdvice(messageContent);
+            const advice = await getDressingAdvice(messageContent);
 
           const responseData = {
             timestamp: tim.toLocaleString(),
@@ -223,6 +224,7 @@ function readLocalWeather(cityName, res) {
             advice: advice,
           };
           res.status(200).json(responseData);
+		  res.end();
         } else {
           res.status(404).send('找不到該縣市的天氣資訊');
         }
