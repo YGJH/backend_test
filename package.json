@@ -7,11 +7,11 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "fs": "^0.0.1-security",
-    "heroku": "^10.0.0",
     "http": "^0.0.1-security",
-    "node-fetch": "^3.3.2",
     "nodeman": "^1.1.2",
-    "openai": "^4.76.3"
+    "openai": "^4.77.0",
+    "punycode": "^2.3.1",
+    "whatwg-url": "^14.1.0"
   },
   "scripts": {
     "start": "node index.js"
