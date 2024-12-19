@@ -6,14 +6,39 @@ import fs from 'fs/promises'; // 確保匯入 fs/promises
 import OpenAI from 'openai';
 import path from 'path';
 import {fileURLToPath} from 'url';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
+
 
 const app = express();
 app.use(cors());  // 允許所有跨域請求
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));  // 新增此行
 app.options('*', cors());  // 處理所有路徑的 OPTIONS 請求
+
+// 添加請求限制配置
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分鐘
+  max: 100, // 每個 IP 15分鐘內最多 100 次請求
+  message: '請求次數過多，請稍後再試',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 添加簡單的 API 金鑰驗證中間件
+
+// 添加請求頭檢查中間件
+const checkHeaders = (req, res, next) => {
+  const userAgent = req.headers['user-agent'];
+  if (!userAgent || userAgent.toLowerCase().includes('bot')) {
+    return res.status(403).json({ error: '禁止訪問' });
+  }
+  next();
+};
+
+app.use(limiter);  // 應用請求限制
+app.use(checkHeaders);  // 應用請求頭檢查
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -50,6 +75,9 @@ async function getDressingAdvice(messageContent) {
 }
 
 app.post('/weather', async (req, res) => {
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  console.log('POST 請求 IP：', clientIP);
+  console.log('POST 請求：', req.body);
   let cityName = req.body;
   try {
     cityName = cityName.cityName;
@@ -235,6 +263,8 @@ async function readLocalWeather(cityName, res) {
 }
 
 app.get('/weather', async (req, res) => {
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  console.log('GET 請求 IP：', clientIP);
   console.log('GET 請求經緯度：', req.query);
   const {latitude, longitude} = req.query;
   if (!latitude || !longitude) {
