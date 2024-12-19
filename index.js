@@ -15,7 +15,6 @@ app.use(express.json());
 app.use(express.urlencoded({extended: true}));  // 新增此行
 app.options('*', cors());  // 處理所有路徑的 OPTIONS 請求
 
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -23,7 +22,7 @@ const openai = new OpenAI({
 const ForcastApiUrl =
     `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-089?Authorization=${
         process.env.WEATHER_API_KEY}`;
-const apiUrl =
+const currentWeatherApiUrl =
     `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${
         process.env.WEATHER_API_KEY}`;
 const googleMapsApiUrl = 'https://maps.googleapis.com/maps/api/geocode/json';
@@ -69,7 +68,7 @@ app.post('/weather', async (req, res) => {
     } else {
       console.error('無法取得氣象預報資料');
     }
-    const weatherResponse = await fetch(apiUrl);
+    const weatherResponse = await fetch(currentWeatherApiUrl);
     const weatherData = await weatherResponse.json();
 
     if (weatherData.success === 'true') {
@@ -108,12 +107,10 @@ async function readLocalWeather(cityName, res) {
     // 讀取目前天氣資料
     const currentWeatherData = await fs.readFile(weatherPath, 'utf8');
     const currentWeather = JSON.parse(currentWeatherData);
-    console.log('目前天氣資料:', currentWeather);
 
     // 檢查 records 和 location 屬性
     if (!currentWeather.records ||
         !Array.isArray(currentWeather.records.location)) {
-      console.error('目前天氣資料格式錯誤:', currentWeather);
       res.status(500).send('伺服器錯誤');
       return;
     }
@@ -129,7 +126,7 @@ async function readLocalWeather(cityName, res) {
 
     // 提取目前天氣資訊
     const currentWeatherElements = currentLocation.weatherElement;
-    console.log('目前天氣資訊：', currentWeatherElements);
+    // console.log('目前天氣資訊：', currentWeatherElements);
     const currentWx =
         currentWeatherElements.find((element) => element.elementName === 'Wx')
             .time[0].parameter.parameterName;
@@ -165,13 +162,17 @@ async function readLocalWeather(cityName, res) {
 
     const forecastElements = forecastLocation.WeatherElement;
     // 找出天氣現象和綜合描述的資料
-    const wxElement = forecastElements.find(element => element.ElementName === 'Wx');
-    const weatherDescElement = forecastElements.find(element => element.ElementName === 'WeatherDescription');
-    const tempElement = forecastElements.find(element => element.ElementName === 'T');
-    const feelsTempElement = forecastElements.find(element => element.ElementName === 'AT');
-
-    if (!wxElement?.Time || !tempElement?.Time) {
+    const wxElement = forecastElements.find(element => element.ElementName === '天氣現象');
+    const weatherDescElement = forecastElements.find(element => element.ElementName === '天氣預報綜合描述');
+    const tempElement = forecastElements.find(element => element.ElementName === '溫度');
+    const feelsTempElement = forecastElements.find(element => element.ElementName === '體感溫度');
+    if (!wxElement?.Time) {
       console.error('找不到天氣資料');
+      res.status(500).send('伺服器錯誤');
+      return;
+    }
+    if(!tempElement?.Time) {
+      console.error('找不到溫度資料');
       res.status(500).send('伺服器錯誤');
       return;
     }
@@ -181,15 +182,19 @@ async function readLocalWeather(cityName, res) {
     for (let i = 0; i < wxElement.Time.length; i += 8) { // 每天取一個時間點
       const wxTime = wxElement.Time[i];
       const tempTime = tempElement.Time[i];
+      const weaDesc = weatherDescElement.Time[i];
       const feelsTempTime = feelsTempElement?.Time[i];
-
+      console.log(`wxTime ${i}:`, wxTime);
+      console.log(`wxTime.ElementValue ${i}:`, wxTime.ElementValue);
+      console.log(`weaDesc ${i}:`, weaDesc);
+      console.log(`tempTime ${i}:`, tempTime);
+      console.log(`feelsTempTime ${i}:`, feelsTempTime);
       if (wxTime && tempTime) {
         forecastWx.push({
-          date: wxTime.StartTime ? wxTime.StartTime.split('T')[0] : '無日期',
-          weather: wxTime.ElementValue.find(v => v.measures === 'Weather')?.value || '無天氣資料',
-          description: wxTime.ElementValue.find(v => v.measures === 'WeatherDescription')?.value || '無描述',
-          temp: tempTime.ElementValue[0]?.value || '無溫度資料',
-          feelsTemp: feelsTempTime?.ElementValue[0]?.value || '無體感溫度資料'
+          date: (wxTime.StartTime) ? wxTime.StartTime.split('T')[0] : '無日期',
+          description: weaDesc.ElementValue[0].WeatherDescription || '無描述',
+          temp: tempTime.ElementValue[0]?.Temperature || '無溫度資料',
+          feelsTemp: feelsTempTime?.ElementValue[0]?.ApparentTemperature || '無體感溫度資料'
         });
       }
       if (forecastWx.length >= 3) break; // 只取三天的資料
@@ -200,7 +205,7 @@ async function readLocalWeather(cityName, res) {
     // 確保 forecastList 有內容並包含完整描述
     const forecastList = forecastWx
       .map(forecast => 
-        `日期：${forecast.date}，天氣：${forecast.weather}，溫度：${forecast.temp}°C，體感溫度：${forecast.feelsTemp}°C`
+        `日期：${forecast.date}，天氣：${forecast.description}，溫度：${forecast.temp}°C，體感溫度：${forecast.feelsTemp}°C`
       )
       .join('； ');
 
@@ -241,6 +246,7 @@ async function readLocalWeather(cityName, res) {
 
 app.get('/weather', async (req, res) => {
   const {latitude, longitude} = req.query;
+  console.log('GET 請求：', req.query);
   console.log('經度：', latitude);
   console.log('緯度：', longitude);
   if (!latitude || !longitude) {
@@ -249,9 +255,10 @@ app.get('/weather', async (req, res) => {
   }
 
   try {
-    // 使用 Google Maps API 根據經緯度取得城市名稱
-    const geocodeResponse = await fetch(`${googleMapsApiUrl}?latlng=${
-        latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}`);
+    // 使用 Google Maps API 根據經緯度取得城市名稱，並設定語言為繁體中文
+    const geocodeResponse = await fetch(
+      `${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}&language=zh-TW`
+    );
     const geocodeData = await geocodeResponse.json();
 
     if (geocodeData.status !== 'OK') {
@@ -260,8 +267,8 @@ app.get('/weather', async (req, res) => {
     }
 
     const cityName = geocodeData.results[0].address_components.find(
-        component => component.types.includes('administrative_area_level_1'));
-
+        component => component.types.includes('administrative_area_level_1')).long_name;
+      console.log('城市名稱：', cityName);
     if (!cityName) {
       res.status(404).send('無法解析城市名稱');
       return;
@@ -269,6 +276,7 @@ app.get('/weather', async (req, res) => {
 
     // 呼叫 readLocalWeather 函式來處理訊息並回傳
     await readLocalWeather(cityName, res);
+    res.end();
   } catch (error) {
     console.error('處理 GET 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
