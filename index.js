@@ -34,7 +34,6 @@ async function getDressingAdvice(messageContent) {
         content: messageContent,  // 使用 'content' 而非 'message'
       },
     ];
-    console.log('送往 OpenAI 的訊息：', messages);
     // 調用 OpenAI API 獲取穿搭建議
     const chatCompletion = await openai.chat.completions.create({
       model: 'gpt-4-turbo',
@@ -236,17 +235,19 @@ async function readLocalWeather(cityName, res) {
 }
 
 app.get('/weather', async (req, res) => {
+  console.log('GET 請求經緯度：', req.query);
   const {latitude, longitude} = req.query;
   if (!latitude || !longitude) {
     res.status(400).send('缺少經緯度參數');
     return;
   }
-
+  // console.log('經緯度：', latitude, longitude);
   try {
     // 使用 Google Maps API 根據經緯度取得城市名稱，並設定語言為繁體中文
     const geocodeResponse = await fetch(
       `${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}&language=zh-TW`
     );
+    
     const geocodeData = await geocodeResponse.json();
 
     if (geocodeData.status !== 'OK') {
@@ -259,8 +260,8 @@ app.get('/weather', async (req, res) => {
     if (!cityName) {
       res.status(404).send('無法解析城市名稱');
       return;
-    }
-
+    } 
+    console.log('城市名稱：', cityName);
     // 呼叫 readLocalWeather 函式來處理訊息並回傳
     await readLocalWeather(cityName, res);
     res.end();
