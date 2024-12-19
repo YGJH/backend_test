@@ -51,11 +51,9 @@ async function getDressingAdvice(messageContent) {
 }
 
 app.post('/weather', async (req, res) => {
-  console.log('POST 請求：', req.body);
   let cityName = req.body;
   try {
     cityName = cityName.cityName;
-    console.log('城市名稱：', cityName);
 
     // 請求未來三天的氣象預報並儲存到 forcastWeather.json
     const forecastResponse = await fetch(ForcastApiUrl);
@@ -184,11 +182,6 @@ async function readLocalWeather(cityName, res) {
       const tempTime = tempElement.Time[i];
       const weaDesc = weatherDescElement.Time[i];
       const feelsTempTime = feelsTempElement?.Time[i];
-      console.log(`wxTime ${i}:`, wxTime);
-      console.log(`wxTime.ElementValue ${i}:`, wxTime.ElementValue);
-      console.log(`weaDesc ${i}:`, weaDesc);
-      console.log(`tempTime ${i}:`, tempTime);
-      console.log(`feelsTempTime ${i}:`, feelsTempTime);
       if (wxTime && tempTime) {
         forecastWx.push({
           date: (wxTime.StartTime) ? wxTime.StartTime.split('T')[0] : '無日期',
@@ -200,7 +193,6 @@ async function readLocalWeather(cityName, res) {
       if (forecastWx.length >= 3) break; // 只取三天的資料
     }
 
-    console.log('預報資料：', forecastWx);
 
     // 確保 forecastList 有內容並包含完整描述
     const forecastList = forecastWx
@@ -221,7 +213,6 @@ async function readLocalWeather(cityName, res) {
 
     // 獲取穿搭建議
     const advice = await getDressingAdvice(messageContent);
-    console.log('穿搭建議：', advice);
 
     // 構建回傳資料
     const responseData = {
@@ -246,9 +237,6 @@ async function readLocalWeather(cityName, res) {
 
 app.get('/weather', async (req, res) => {
   const {latitude, longitude} = req.query;
-  console.log('GET 請求：', req.query);
-  console.log('經度：', latitude);
-  console.log('緯度：', longitude);
   if (!latitude || !longitude) {
     res.status(400).send('缺少經緯度參數');
     return;
@@ -268,7 +256,6 @@ app.get('/weather', async (req, res) => {
 
     const cityName = geocodeData.results[0].address_components.find(
         component => component.types.includes('administrative_area_level_1')).long_name;
-      console.log('城市名稱：', cityName);
     if (!cityName) {
       res.status(404).send('無法解析城市名稱');
       return;
