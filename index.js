@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 import fs from 'fs/promises'; // 確保匯入 fs/promises
 import OpenAI from 'openai';
 import path from 'path';
-import {fileURLToPath} from 'url';
+// import {fileURLToPath} from 'url';
 
 dotenv.config();
 
@@ -105,9 +105,7 @@ app.post('/weather', async (req, res) => {
     }
 
     // 呼叫 readLocalWeather 函式來處理目前天氣與預報資料，並回傳
-    if (0) {
       await readLocalWeather(cityName, res);
-    }
   } catch (error) {
     console.error('處理 POST 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
@@ -279,7 +277,7 @@ app.get('/weather', async (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   console.log('GET 請求 IP：', clientIP);
   console.log('GET 請求經緯度：', req.query);
-  const {latitude, longitude, useFrontApi} = req.query;
+  const {latitude, longitude, useFrontendApi} = req.query;
   if (!latitude || !longitude) {
     res.status(400).send('缺少經緯度參數');
     return;
@@ -310,8 +308,9 @@ app.get('/weather', async (req, res) => {
     }
     console.log('城市名稱：', cityName);
     // 呼叫 readLocalWeather 函式來處理訊息並回傳
-    if (useFrontApi) {
-      res.status(200).json({cityName: cityName});
+    if (useFrontendApi == 'true') {
+      res.status(200).send({city: cityName});
+
     } else {
       await readLocalWeather(cityName, res);
     }
