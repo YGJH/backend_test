@@ -2,11 +2,11 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import fs from 'fs/promises'; // 確保匯入 fs/promises
 import OpenAI from 'openai';
 import path from 'path';
 import {fileURLToPath} from 'url';
-import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
@@ -19,8 +19,8 @@ app.options('*', cors());  // 處理所有路徑的 OPTIONS 請求
 
 // 添加請求限制配置
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15分鐘
-  max: 100, // 每個 IP 15分鐘內最多 100 次請求
+  windowMs: 15 * 60 * 1000,  // 15分鐘
+  max: 100,                  // 每個 IP 15分鐘內最多 100 次請求
   message: '請求次數過多，請稍後再試',
   standardHeaders: true,
   legacyHeaders: false,
@@ -32,12 +32,12 @@ const limiter = rateLimit({
 const checkHeaders = (req, res, next) => {
   const userAgent = req.headers['user-agent'];
   if (!userAgent || userAgent.toLowerCase().includes('bot')) {
-    return res.status(403).json({ error: '禁止訪問' });
+    return res.status(403).json({error: '禁止訪問'});
   }
   next();
 };
 
-app.use(limiter);  // 應用請求限制
+app.use(limiter);       // 應用請求限制
 app.use(checkHeaders);  // 應用請求頭檢查
 
 const openai = new OpenAI({
@@ -105,7 +105,9 @@ app.post('/weather', async (req, res) => {
     }
 
     // 呼叫 readLocalWeather 函式來處理目前天氣與預報資料，並回傳
-    await readLocalWeather(cityName, res);
+    if (0) {
+      await readLocalWeather(cityName, res);
+    }
   } catch (error) {
     console.error('處理 POST 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
@@ -154,16 +156,20 @@ async function readLocalWeather(cityName, res) {
     // console.log('目前天氣資訊：', currentWeatherElements);
     const currentWx =
         currentWeatherElements.find((element) => element.elementName === 'Wx')
-            .time[0].parameter.parameterName;
+            .time[0]
+            .parameter.parameterName;
     const currentPoP =
         currentWeatherElements.find((element) => element.elementName === 'PoP')
-            .time[0].parameter.parameterName;
+            .time[0]
+            .parameter.parameterName;
     const currentMinT =
         currentWeatherElements.find((element) => element.elementName === 'MinT')
-            .time[0].parameter.parameterName;
+            .time[0]
+            .parameter.parameterName;
     const currentMaxT =
         currentWeatherElements.find((element) => element.elementName === 'MaxT')
-            .time[0].parameter.parameterName;
+            .time[0]
+            .parameter.parameterName;
 
     // 讀取未來三天預報資料
     const forecastData = await fs.readFile(forecastPath, 'utf8');
@@ -187,16 +193,20 @@ async function readLocalWeather(cityName, res) {
 
     const forecastElements = forecastLocation.WeatherElement;
     // 找出天氣現象和綜合描述的資料
-    const wxElement = forecastElements.find(element => element.ElementName === '天氣現象');
-    const weatherDescElement = forecastElements.find(element => element.ElementName === '天氣預報綜合描述');
-    const tempElement = forecastElements.find(element => element.ElementName === '溫度');
-    const feelsTempElement = forecastElements.find(element => element.ElementName === '體感溫度');
+    const wxElement =
+        forecastElements.find(element => element.ElementName === '天氣現象');
+    const weatherDescElement = forecastElements.find(
+        element => element.ElementName === '天氣預報綜合描述');
+    const tempElement =
+        forecastElements.find(element => element.ElementName === '溫度');
+    const feelsTempElement =
+        forecastElements.find(element => element.ElementName === '體感溫度');
     if (!wxElement?.Time) {
       console.error('找不到天氣資料');
       res.status(500).send('伺服器錯誤');
       return;
     }
-    if(!tempElement?.Time) {
+    if (!tempElement?.Time) {
       console.error('找不到溫度資料');
       res.status(500).send('伺服器錯誤');
       return;
@@ -204,7 +214,7 @@ async function readLocalWeather(cityName, res) {
 
     // 修改取得預報資料的方式
     const forecastWx = [];
-    for (let i = 0; i < wxElement.Time.length; i += 8) { // 每天取一個時間點
+    for (let i = 0; i < wxElement.Time.length; i += 8) {  // 每天取一個時間點
       const wxTime = wxElement.Time[i];
       const tempTime = tempElement.Time[i];
       const weaDesc = weatherDescElement.Time[i];
@@ -214,19 +224,22 @@ async function readLocalWeather(cityName, res) {
           date: (wxTime.StartTime) ? wxTime.StartTime.split('T')[0] : '無日期',
           description: weaDesc.ElementValue[0].WeatherDescription || '無描述',
           temp: tempTime.ElementValue[0]?.Temperature || '無溫度資料',
-          feelsTemp: feelsTempTime?.ElementValue[0]?.ApparentTemperature || '無體感溫度資料'
+          feelsTemp: feelsTempTime?.ElementValue[0]?.ApparentTemperature ||
+              '無體感溫度資料'
         });
       }
-      if (forecastWx.length >= 3) break; // 只取三天的資料
+      if (forecastWx.length >= 3) break;  // 只取三天的資料
     }
 
 
     // 確保 forecastList 有內容並包含完整描述
-    const forecastList = forecastWx
-      .map(forecast => 
-        `日期：${forecast.date}，天氣：${forecast.description}，溫度：${forecast.temp}°C，體感溫度：${forecast.feelsTemp}°C`
-      )
-      .join('； ');
+    const forecastList =
+        forecastWx
+            .map(
+                forecast => `日期：${forecast.date}，天氣：${
+                    forecast.description}，溫度：${
+                    forecast.temp}°C，體感溫度：${forecast.feelsTemp}°C`)
+            .join('； ');
 
     const currentDate = new Date();
     currentDate.setHours(currentDate.getHours() + 8);  // 時區調整
@@ -266,7 +279,7 @@ app.get('/weather', async (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   console.log('GET 請求 IP：', clientIP);
   console.log('GET 請求經緯度：', req.query);
-  const {latitude, longitude} = req.query;
+  const {latitude, longitude, useFrontApi} = req.query;
   if (!latitude || !longitude) {
     res.status(400).send('缺少經緯度參數');
     return;
@@ -274,10 +287,10 @@ app.get('/weather', async (req, res) => {
   // console.log('經緯度：', latitude, longitude);
   try {
     // 使用 Google Maps API 根據經緯度取得城市名稱，並設定語言為繁體中文
-    const geocodeResponse = await fetch(
-      `${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}&language=zh-TW`
-    );
-    
+    const geocodeResponse =
+        await fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${
+            process.env.GOOGLE_API_KEY}&language=zh-TW`);
+
     const geocodeData = await geocodeResponse.json();
 
     if (geocodeData.status !== 'OK') {
@@ -285,15 +298,23 @@ app.get('/weather', async (req, res) => {
       return;
     }
 
-    const cityName = geocodeData.results[0].address_components.find(
-        component => component.types.includes('administrative_area_level_1')).long_name;
+    const cityName = geocodeData.results[0]
+                         .address_components
+                         .find(
+                             component => component.types.includes(
+                                 'administrative_area_level_1'))
+                         .long_name;
     if (!cityName) {
       res.status(404).send('無法解析城市名稱');
       return;
-    } 
+    }
     console.log('城市名稱：', cityName);
     // 呼叫 readLocalWeather 函式來處理訊息並回傳
-    await readLocalWeather(cityName, res);
+    if (useFrontApi) {
+      res.status(200).json({cityName: cityName});
+    } else {
+      await readLocalWeather(cityName, res);
+    }
     res.end();
   } catch (error) {
     console.error('處理 GET 請求錯誤：', error);
