@@ -258,23 +258,20 @@ async function readLocalWeather(cityName, res) {
       }
       if (forecastWx.length >= 3) break;  // 只取三天的資料
     }
-
+    const formatedCurrentDate = new Date().toLocaleDateString();
 
     // 確保 forecastList 有內容並包含完整描述
     const forecastList =
         forecastWx
             .map(
-                forecast => `日期：${forecast.date}，天氣：${
+                forecast => `日期：${formatedCurrentDate}，天氣：${
                     forecast.description}，溫度：${
                     forecast.temp}°C，體感溫度：${forecast.feelsTemp}°C`)
             .join('； ');
 
-    const currentDate = new Date();
-    currentDate.setHours(currentDate.getHours() + 8);  // 時區調整
-    const formattedCurrentDate = currentDate.toLocaleString();
 
     const messageContent =
-        `今天是${formattedCurrentDate}，${cityName}的目前天氣為：天氣狀況 ${
+        `今天是${formatedCurrentDate}，${cityName}的目前天氣為：天氣狀況 ${
             currentWx}，降雨機率 ${currentPoP}%，` +
         `溫度約 ${currentMinT}°C ~ ${currentMaxT}°C。未來三天的天氣預報如下：${
             forecastList}請問我今天應該穿什麼衣服？`;
@@ -284,7 +281,6 @@ async function readLocalWeather(cityName, res) {
 
     // 構建回傳資料
     const responseData = {
-      timestamp: formattedCurrentDate,
       city: cityName,
       currentWeather: {
         weather: currentWx,
