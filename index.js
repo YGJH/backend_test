@@ -3,9 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import slowDown from 'express-slow-down';
 import fs from 'fs/promises'; // 確保匯入 fs/promises
 import OpenAI from 'openai';
 import path from 'path';
+
 // import {fileURLToPath} from 'url';
 
 dotenv.config();
@@ -17,28 +19,57 @@ app.use(express.json());
 app.use(express.urlencoded({extended: true}));  // 新增此行
 app.options('*', cors());  // 處理所有路徑的 OPTIONS 請求
 
-// 添加請求限制配置
+// 設置速率限制器
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15分鐘
-  max: 100,                  // 每個 IP 15分鐘內最多 100 次請求
+  windowMs: 15 * 60 * 1000, // 15分鐘
+  max: 100, // 限制每個 IP 15分鐘內最多 100 個請求
   message: '請求次數過多，請稍後再試',
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// 添加簡單的 API 金鑰驗證中間件
+// 設置請求減速
+const speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15分鐘
+  delayAfter: 50, // 50個請求後開始減速
+  delayMs: () => 500 // 每個請求增加 500ms 延遲
+});
 
-// 添加請求頭檢查中間件
-const checkHeaders = (req, res, next) => {
-  const userAgent = req.headers['user-agent'];
-  if (!userAgent || userAgent.toLowerCase().includes('bot')) {
-    return res.status(403).json({error: '禁止訪問'});
+API 金鑰驗證中間件
+const apiKeyAuth = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    return res.status(401).json({ error: '未授權的請求' });
   }
   next();
 };
 
-app.use(limiter);       // 應用請求限制
-app.use(checkHeaders);  // 應用請求頭檢查
+// 請求記錄中間件
+const requestLogger = (req, res, next) => {
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] IP: ${clientIP}, Method: ${req.method}, Path: ${req.path}, User-Agent: ${req.headers['user-agent']}`);
+  next();
+};
+
+// User-Agent 驗證中間件
+const validateUserAgent = (req, res, next) => {
+  const userAgent = req.headers['user-agent'];
+  if (!userAgent || 
+      userAgent.toLowerCase().includes('bot') || 
+      userAgent.toLowerCase().includes('crawler') ||
+      userAgent.toLowerCase().includes('spider')) {
+    return res.status(403).json({ error: '禁止訪問' });
+  }
+  next();
+};
+
+// 應用中間件
+app.use(requestLogger);
+app.use(limiter);
+app.use(speedLimiter);
+app.use(validateUserAgent);
+app.use(apiKeyAuth);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -75,11 +106,9 @@ async function getDressingAdvice(messageContent) {
 }
 
 app.post('/weather', async (req, res) => {
-  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  console.log('POST 請求 IP：', clientIP);
-  console.log('POST 請求：', req.body);
-  let cityName = req.body;
   try {
+    let cityName = req.body;
+    console.log('POST 請求：', req.body);
     cityName = cityName.cityName;
 
     // 請求未來三天的氣象預報並儲存到 forcastWeather.json
@@ -105,7 +134,7 @@ app.post('/weather', async (req, res) => {
     }
 
     // 呼叫 readLocalWeather 函式來處理目前天氣與預報資料，並回傳
-      await readLocalWeather(cityName, res);
+    await readLocalWeather(cityName, res);
   } catch (error) {
     console.error('處理 POST 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
@@ -274,20 +303,19 @@ async function readLocalWeather(cityName, res) {
 }
 
 app.get('/weather', async (req, res) => {
-  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  console.log('GET 請求 IP：', clientIP);
-  console.log('GET 請求經緯度：', req.query);
-  const {latitude, longitude, useFrontendApi} = req.query;
-  if (!latitude || !longitude) {
-    res.status(400).send('缺少經緯度參數');
-    return;
-  }
-  // console.log('經緯度：', latitude, longitude);
   try {
-    // 使用 Google Maps API 根據經緯度取得城市名稱，並設定語言為繁體中文
-    const geocodeResponse =
-        await fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${
-            process.env.GOOGLE_API_KEY}&language=zh-TW`);
+    const {latitude, longitude, useFrontendApi} = req.query;
+    console.log('GET 請求經緯度：', req.query);
+    
+    if (!latitude || !longitude) {
+      res.status(400).send('缺少經緯度參數');
+      return;
+    }
+
+    // 使用 Google Maps API 根據經緯度取得城市名稱
+    const geocodeResponse = await fetch(
+      `${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}&language=zh-TW`
+    );
 
     const geocodeData = await geocodeResponse.json();
 
@@ -296,25 +324,27 @@ app.get('/weather', async (req, res) => {
       return;
     }
 
-    const cityName = geocodeData.results[0]
-                         .address_components
-                         .find(
-                             component => component.types.includes(
-                                 'administrative_area_level_1'))
-                         .long_name;
+    const cityName = geocodeData.results[0].address_components.find(
+      component => component.types.includes('administrative_area_level_1')
+    )?.long_name;
+
     if (!cityName) {
       res.status(404).send('無法解析城市名稱');
       return;
     }
-    console.log('城市名稱：', cityName);
-    // 呼叫 readLocalWeather 函式來處理訊息並回傳
-    if (useFrontendApi == 'true') {
-      res.status(200).send({city: cityName});
 
-    } else {
-      await readLocalWeather(cityName, res);
+    console.log('城市名稱：', cityName);
+
+    // 根據 useFrontendApi 參數決定回傳內容
+    if (useFrontendApi === 'true') {
+      res.status(200).json({city: cityName});
+      return;  // 加入 return 確保函數結束
     }
-    res.end();
+
+    // 如果不是前端 API 調用，則處理完整天氣資訊
+    await readLocalWeather(cityName, res);
+    // 移除這裡的 res.end()，因為 readLocalWeather 已經會發送回應
+
   } catch (error) {
     console.error('處理 GET 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
