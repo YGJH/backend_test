@@ -35,9 +35,10 @@ const speedLimiter = slowDown({
   delayMs: () => 500 // 每個請求增加 500ms 延遲
 });
 
-API 金鑰驗證中間件
+// API 金鑰驗證中間件
 const apiKeyAuth = (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
+  console.log('API 金鑰：', apiKey);
   if (!apiKey || apiKey !== process.env.API_KEY) {
     return res.status(401).json({ error: '未授權的請求' });
   }
