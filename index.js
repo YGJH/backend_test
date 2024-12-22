@@ -274,7 +274,7 @@ async function readLocalWeather(cityName, res) {
         `今天是${formatedCurrentDate}，${cityName}的目前天氣為：天氣狀況 ${
             currentWx}，降雨機率 ${currentPoP}%，` +
         `溫度約 ${currentMinT}°C ~ ${currentMaxT}°C。未來三天的天氣預報如下：${
-            forecastList}請問我今天應該穿什麼衣服？`;
+            forecastList}請問我今天應該穿什麼衣服？請只用繁體中文回答`;
 
     // 獲取穿搭建議
     const advice = await getDressingAdvice(messageContent);
