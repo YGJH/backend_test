@@ -145,13 +145,11 @@ async function getInformation() {
 
 app.post('/weather', async (req, res) => {
   try {
-    let cityName = req.body;
+    let {cityName , timestamp} = req.body;
     console.log('POST 請求：', req.body);
-    cityName = cityName.cityName;
-
     const {forecastData , weatherData} = await getInformation();
     // 呼叫 readLocalWeather 函式來處理目前天氣與預報資料，並回傳
-    await readLocalWeather(cityName, res , weatherData , forecastData);
+    await readLocalWeather(cityName, res , weatherData , forecastData , timestamp);
   } catch (error) {
     console.error('處理 POST 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
@@ -160,7 +158,7 @@ app.post('/weather', async (req, res) => {
 
 
 // 讀取本地天氣資料函式
-async function readLocalWeather(cityName, res , currentWeather , forecastWeather ) {
+async function readLocalWeather(cityName, res , currentWeather , forecastWeather , timestamp) {
   try {
 
     // 檢查 records 和 location 屬性
@@ -258,7 +256,7 @@ async function readLocalWeather(cityName, res , currentWeather , forecastWeather
       }
       if (forecastWx.length >= 3) break;  // 只取三天的資料
     }
-    const formatedCurrentDate = new Date().toLocaleDateString();
+    const formatedCurrentDate = timestamp ? new Date(timestamp).toLocaleDateString('zh-TW') : new Date().toLocaleDateString('zh-TW');
 
     // 確保 forecastList 有內容並包含完整描述
     const forecastList =
@@ -277,6 +275,7 @@ async function readLocalWeather(cityName, res , currentWeather , forecastWeather
             forecastList}請問我今天應該穿什麼衣服？請只用繁體中文回答`;
 
     // 獲取穿搭建議
+    // console.log('穿搭建議問題：', messageContent);
     const advice = await getDressingAdvice(messageContent);
 
     // 構建回傳資料
@@ -301,7 +300,7 @@ async function readLocalWeather(cityName, res , currentWeather , forecastWeather
 
 app.get('/weather', async (req, res) => {
   try {
-    const {latitude, longitude, useFrontendApi} = req.query;
+    const {latitude, longitude, useFrontendApi , timestamp} = req.query;
     console.log('GET 請求經緯度：', req.query);
     
     if (!latitude || !longitude) {
@@ -330,7 +329,7 @@ app.get('/weather', async (req, res) => {
       return;
     }
 
-    console.log('城市名稱：', cityName);
+    // console.log('城市名稱：', cityName);
 
     // 根據 useFrontendApi 參數決定回傳內容
     if (useFrontendApi === 'true') {
@@ -342,7 +341,7 @@ app.get('/weather', async (req, res) => {
     
     const {forecastData , weatherData} = await getInformation();
 
-    await readLocalWeather(cityName, res , weatherData , forecastData);
+    await readLocalWeather(cityName, res , weatherData , forecastData , timestamp);
     // 移除這裡的 res.end()，因為 readLocalWeather 已經會發送回應
 
   } catch (error) {
