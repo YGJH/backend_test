@@ -280,8 +280,8 @@ async function readLocalWeather(
 
     // 獲取穿搭建議
     // console.log('穿搭建議問題：', messageContent);
-    const advice = '';
-    // const advice = await getDressingAdvice(messageContent);
+    // const advice = '';
+    const advice = await getDressingAdvice(messageContent);
 
     // 構建回傳資料
     const responseData = {
