@@ -18,8 +18,8 @@ app.options('*', cors());  // 處理所有路徑的 OPTIONS 請求
 
 // 設置速率限制器
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15分鐘
-  max: 100, // 限制每個 IP 15分鐘內最多 100 個請求
+  windowMs: 15 * 60 * 1000,  // 15分鐘
+  max: 100,                  // 限制每個 IP 15分鐘內最多 100 個請求
   message: '請求次數過多，請稍後再試',
   standardHeaders: true,
   legacyHeaders: false,
@@ -27,9 +27,9 @@ const limiter = rateLimit({
 
 // 設置請求減速
 const speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1000, // 15分鐘
-  delayAfter: 50, // 50個請求後開始減速
-  delayMs: () => 500 // 每個請求增加 500ms 延遲
+  windowMs: 15 * 60 * 1000,  // 15分鐘
+  delayAfter: 50,            // 50個請求後開始減速
+  delayMs: () => 500         // 每個請求增加 500ms 延遲
 });
 
 // API 金鑰驗證中間件
@@ -37,7 +37,7 @@ const apiKeyAuth = (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   console.log('API 金鑰：', apiKey);
   if (!apiKey || apiKey !== process.env.API_KEY) {
-    return res.status(401).json({ error: '未授權的請求' });
+    return res.status(401).json({error: '未授權的請求'});
   }
   next();
 };
@@ -46,18 +46,18 @@ const apiKeyAuth = (req, res, next) => {
 const requestLogger = (req, res, next) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] IP: ${clientIP}, Method: ${req.method}, Path: ${req.path}, User-Agent: ${req.headers['user-agent']}`);
+  console.log(`[${timestamp}] IP: ${clientIP}, Method: ${req.method}, Path: ${
+      req.path}, User-Agent: ${req.headers['user-agent']}`);
   next();
 };
 
 // User-Agent 驗證中間件
 const validateUserAgent = (req, res, next) => {
   const userAgent = req.headers['user-agent'];
-  if (!userAgent || 
-      userAgent.toLowerCase().includes('bot') || 
+  if (!userAgent || userAgent.toLowerCase().includes('bot') ||
       userAgent.toLowerCase().includes('crawler') ||
       userAgent.toLowerCase().includes('spider')) {
-    return res.status(403).json({ error: '禁止訪問' });
+    return res.status(403).json({error: '禁止訪問'});
   }
   next();
 };
@@ -110,16 +110,19 @@ async function getInformation() {
     const forecastResponse = await fetch(ForcastApiUrl);
     if (forecastResponse.ok) {
       forecastData = await forecastResponse.json();
-       fs.writeFile(
-        'forecastWeather.json', JSON.stringify(forecastData, null, 2), 'utf8');
+      fs.writeFile(
+          'forecastWeather.json', JSON.stringify(forecastData, null, 2),
+          'utf8');
     } else {
       console.error('無法取得氣象預報資料');
-      const forecastDataString = await fs.readFile('forecastWeather.json', 'utf8');
+      const forecastDataString =
+          await fs.readFile('forecastWeather.json', 'utf8');
       forecastData = JSON.parse(forecastDataString);
     }
   } catch (error) {
     console.error('取得氣象預報資料時發生錯誤：', error);
-    const forecastDataString = await fs.readFile('forecastWeather.json', 'utf8');
+    const forecastDataString =
+        await fs.readFile('forecastWeather.json', 'utf8');
     forecastData = JSON.parse(forecastDataString);
   }
 
@@ -128,7 +131,7 @@ async function getInformation() {
     if (weatherResponse.ok) {
       weatherData = await weatherResponse.json();
       await fs.writeFile(
-        'weather.json', JSON.stringify(weatherData, null, 2), 'utf8');
+          'weather.json', JSON.stringify(weatherData, null, 2), 'utf8');
     } else {
       console.error('無法取得天氣資料');
       const weatherDataString = await fs.readFile('weather.json', 'utf8');
@@ -140,16 +143,16 @@ async function getInformation() {
     weatherData = JSON.parse(weatherDataString);
   }
 
-  return { forecastData, weatherData };
+  return {forecastData, weatherData};
 }
 
 app.post('/weather', async (req, res) => {
   try {
-    let {cityName , timestamp} = req.body;
+    let {cityName, timestamp} = req.body;
     console.log('POST 請求：', req.body);
-    const {forecastData , weatherData} = await getInformation();
+    const {forecastData, weatherData} = await getInformation();
     // 呼叫 readLocalWeather 函式來處理目前天氣與預報資料，並回傳
-    await readLocalWeather(cityName, res , weatherData , forecastData , timestamp);
+    await readLocalWeather(cityName, res, weatherData, forecastData, timestamp);
   } catch (error) {
     console.error('處理 POST 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
@@ -158,9 +161,9 @@ app.post('/weather', async (req, res) => {
 
 
 // 讀取本地天氣資料函式
-async function readLocalWeather(cityName, res , currentWeather , forecastWeather , timestamp) {
+async function readLocalWeather(
+    cityName, res, currentWeather, forecastWeather, timestamp) {
   try {
-
     // 檢查 records 和 location 屬性
     if (!currentWeather.records ||
         !Array.isArray(currentWeather.records.location)) {
@@ -176,7 +179,6 @@ async function readLocalWeather(cityName, res , currentWeather , forecastWeather
       res.status(404).send('找不到該城市的目前天氣資訊');
       return;
     }
-
     // 提取目前天氣資訊
     const currentWeatherElements = currentLocation.weatherElement;
     // console.log('目前天氣資訊：', currentWeatherElements);
@@ -256,18 +258,20 @@ async function readLocalWeather(cityName, res , currentWeather , forecastWeather
       }
       if (forecastWx.length >= 3) break;  // 只取三天的資料
     }
-    const formatedCurrentDate = timestamp ? new Date(timestamp).toLocaleDateString('zh-TW') : new Date().toLocaleDateString('zh-TW');
+    const formatedCurrentDate = timestamp ?
+        new Date(timestamp).toLocaleDateString('zh-TW') :
+        new Date().toLocaleDateString('zh-TW');
 
     // 確保 forecastList 有內容並包含完整描述
     const forecastList =
         forecastWx
             .map(
-                forecast => `日期：${formatedCurrentDate}，天氣：${
+                forecast => `日期：${forecast.date}，天氣：${
                     forecast.description}，溫度：${
                     forecast.temp}°C，體感溫度：${forecast.feelsTemp}°C`)
             .join('； ');
 
-                    
+
     const messageContent =
         `今天是${formatedCurrentDate}，${cityName}的目前天氣為：天氣狀況 ${
             currentWx}，降雨機率 ${currentPoP}%，` +
@@ -276,7 +280,8 @@ async function readLocalWeather(cityName, res , currentWeather , forecastWeather
 
     // 獲取穿搭建議
     // console.log('穿搭建議問題：', messageContent);
-    const advice = await getDressingAdvice(messageContent);
+    const advice = '';
+    // const advice = await getDressingAdvice(messageContent);
 
     // 構建回傳資料
     const responseData = {
@@ -300,18 +305,18 @@ async function readLocalWeather(cityName, res , currentWeather , forecastWeather
 
 app.get('/weather', async (req, res) => {
   try {
-    const {latitude, longitude, useFrontendApi , timestamp} = req.query;
+    const {latitude, longitude, useFrontendApi, timestamp} = req.query;
     console.log('GET 請求經緯度：', req.query);
-    
+
     if (!latitude || !longitude) {
       res.status(400).send('缺少經緯度參數');
       return;
     }
 
     // 使用 Google Maps API 根據經緯度取得城市名稱
-    const geocodeResponse = await fetch(
-      `${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_API_KEY}&language=zh-TW`
-    );
+    const geocodeResponse =
+        await fetch(`${googleMapsApiUrl}?latlng=${latitude},${longitude}&key=${
+            process.env.GOOGLE_API_KEY}&language=zh-TW`);
 
     const geocodeData = await geocodeResponse.json();
 
@@ -320,9 +325,12 @@ app.get('/weather', async (req, res) => {
       return;
     }
 
-    const cityName = geocodeData.results[0].address_components.find(
-      component => component.types.includes('administrative_area_level_1')
-    )?.long_name;
+    const cityName = geocodeData.results[0]
+                         .address_components
+                         .find(
+                             component => component.types.includes(
+                                 'administrative_area_level_1'))
+                         ?.long_name;
 
     if (!cityName) {
       res.status(404).send('無法解析城市名稱');
@@ -338,10 +346,10 @@ app.get('/weather', async (req, res) => {
     }
 
     // 如果不是前端 API 調用，則處理完整天氣資訊
-    
-    const {forecastData , weatherData} = await getInformation();
 
-    await readLocalWeather(cityName, res , weatherData , forecastData , timestamp);
+    const {forecastData, weatherData} = await getInformation();
+
+    await readLocalWeather(cityName, res, weatherData, forecastData, timestamp);
     // 移除這裡的 res.end()，因為 readLocalWeather 已經會發送回應
 
   } catch (error) {
