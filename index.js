@@ -6,9 +6,6 @@ import rateLimit from 'express-rate-limit';
 import slowDown from 'express-slow-down';
 import fs from 'fs/promises'; // 確保匯入 fs/promises
 import OpenAI from 'openai';
-import path from 'path';
-
-// import {fileURLToPath} from 'url';
 
 dotenv.config();
 
@@ -106,36 +103,55 @@ async function getDressingAdvice(messageContent) {
   }
 }
 
+async function getInformation() {
+  let forecastData, weatherData;
+
+  try {
+    const forecastResponse = await fetch(ForcastApiUrl);
+    if (forecastResponse.ok) {
+      forecastData = await forecastResponse.json();
+       fs.writeFile(
+        'forecastWeather.json', JSON.stringify(forecastData, null, 2), 'utf8');
+    } else {
+      console.error('無法取得氣象預報資料');
+      const forecastDataString = await fs.readFile('forecastWeather.json', 'utf8');
+      forecastData = JSON.parse(forecastDataString);
+    }
+  } catch (error) {
+    console.error('取得氣象預報資料時發生錯誤：', error);
+    const forecastDataString = await fs.readFile('forecastWeather.json', 'utf8');
+    forecastData = JSON.parse(forecastDataString);
+  }
+
+  try {
+    const weatherResponse = await fetch(currentWeatherApiUrl);
+    if (weatherResponse.ok) {
+      weatherData = await weatherResponse.json();
+      await fs.writeFile(
+        'weather.json', JSON.stringify(weatherData, null, 2), 'utf8');
+    } else {
+      console.error('無法取得天氣資料');
+      const weatherDataString = await fs.readFile('weather.json', 'utf8');
+      weatherData = JSON.parse(weatherDataString);
+    }
+  } catch (error) {
+    console.error('取得天氣資料時發生錯誤：', error);
+    const weatherDataString = await fs.readFile('weather.json', 'utf8');
+    weatherData = JSON.parse(weatherDataString);
+  }
+
+  return { forecastData, weatherData };
+}
+
 app.post('/weather', async (req, res) => {
   try {
     let cityName = req.body;
     console.log('POST 請求：', req.body);
     cityName = cityName.cityName;
 
-    // 請求未來三天的氣象預報並儲存到 forcastWeather.json
-    const forecastResponse = await fetch(ForcastApiUrl);
-    const forecastData = await forecastResponse.json();
-    if (forecastData.success === 'true') {
-      // 儲存最新的氣象預報資料
-      await fs.writeFile(
-          'forecastWeather.json', JSON.stringify(forecastData, null, 2),
-          'utf8');
-    } else {
-      console.error('無法取得氣象預報資料');
-    }
-    const weatherResponse = await fetch(currentWeatherApiUrl);
-    const weatherData = await weatherResponse.json();
-
-    if (weatherData.success === 'true') {
-      // 儲存最新的天氣資料
-      await fs.writeFile(
-          'weather.json', JSON.stringify(weatherData, null, 2), 'utf8');
-    } else {
-      console.error('無法取得天氣資料');
-    }
-
+    const {forecastData , weatherData} = await getInformation();
     // 呼叫 readLocalWeather 函式來處理目前天氣與預報資料，並回傳
-    await readLocalWeather(cityName, res);
+    await readLocalWeather(cityName, res , weatherData , forecastData);
   } catch (error) {
     console.error('處理 POST 請求錯誤：', error);
     res.status(500).send('伺服器錯誤');
@@ -144,24 +160,8 @@ app.post('/weather', async (req, res) => {
 
 
 // 讀取本地天氣資料函式
-async function readLocalWeather(cityName, res) {
+async function readLocalWeather(cityName, res , currentWeather , forecastWeather ) {
   try {
-    const forecastPath = path.join('forecastWeather.json');
-    const weatherPath = path.join('weather.json');
-
-    // 檢查 forecastWeather.json 是否存在
-    try {
-      await fs.access(forecastPath);
-    } catch {
-      console.error(
-          'forecastWeather.json 不存在。請先發送 POST 請求以創建該檔案。');
-      res.status(404).send('氣象預報資料尚未初始化');
-      return;
-    }
-
-    // 讀取目前天氣資料
-    const currentWeatherData = await fs.readFile(weatherPath, 'utf8');
-    const currentWeather = JSON.parse(currentWeatherData);
 
     // 檢查 records 和 location 屬性
     if (!currentWeather.records ||
@@ -200,8 +200,8 @@ async function readLocalWeather(cityName, res) {
             .parameter.parameterName;
 
     // 讀取未來三天預報資料
-    const forecastData = await fs.readFile(forecastPath, 'utf8');
-    const forecastWeather = JSON.parse(forecastData);
+    // const forecastData = await fs.readFile(forecastPath, 'utf8');
+    // const forecastWeather = JSON.parse(forecastData);
 
     // 檢查 records 和 Locations 屬性
     if (!forecastWeather.records?.Locations?.[0]?.Location) {
@@ -269,7 +269,7 @@ async function readLocalWeather(cityName, res) {
                     forecast.temp}°C，體感溫度：${forecast.feelsTemp}°C`)
             .join('； ');
 
-
+                    
     const messageContent =
         `今天是${formatedCurrentDate}，${cityName}的目前天氣為：天氣狀況 ${
             currentWx}，降雨機率 ${currentPoP}%，` +
@@ -339,7 +339,10 @@ app.get('/weather', async (req, res) => {
     }
 
     // 如果不是前端 API 調用，則處理完整天氣資訊
-    await readLocalWeather(cityName, res);
+    
+    const {forecastData , weatherData} = await getInformation();
+
+    await readLocalWeather(cityName, res , weatherData , forecastData);
     // 移除這裡的 res.end()，因為 readLocalWeather 已經會發送回應
 
   } catch (error) {
